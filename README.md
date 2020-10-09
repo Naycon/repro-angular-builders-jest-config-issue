@@ -1,27 +1,30 @@
-# AngularBuildersJestDefaultConfigRepro
+# @angular-builders/jest issue repro repo
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 7.3.2.
+This project is presenting a repro case for an [issue in @angular-builders/jest](https://github.com/just-jeb/angular-builders/issues/820)
+where the default moduleNameMapper config makes it impossible to apply jest transforms.
 
-## Development server
+## The basics
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
+This is a barebone app that imports a jpg image in app.component.ts. It is shown in a img tag in app.component.html.
 
-## Code scaffolding
+## What's wrong?
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+If you look in jest.config.js, you'll see there's a transform being applied (fileTransform.js contains the transform) to a bunch of assets,
+among them jpg imports. This _should_ lead to e.g. snapshots getting the transformed result of importing a jpg file. However, what ends up
+happening is that the moduleNameMapper config included per default in @angular-builders/jest steps in. Instead of transforming the jpg import
+using the transform function, the import is being mapped statically to a string buried deep down in @angular-builders/jest's source code.
 
-## Build
+## Snapshot example
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory. Use the `--prod` flag for a production build.
+I've setup a simple snapshot test in this repo. The snapshot for app.component.spec.ts should output `photo` as the src result of the img tag.
+Instead, the result becomes `file-mock`. To run the test, simply run `npm run test`. It would of course pass right now, as the snapshot matches
+what's output by jest and I have not edited it manually.
 
-## Running unit tests
+## Why is this important?
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+Our use case is to e.g. make sure we render the correct credit card image when showing a users billing info in our app. With the default behaviour,
+all our snapshots will output `file-mock` instead of the name of the asset used, making it impossible to use snapshots to verify the logic that
+is choosing pictures.
 
-## Running end-to-end tests
-
-Run `ng e2e` to execute the end-to-end tests via [Protractor](http://www.protractortest.org/).
-
-## Further help
-
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI README](https://github.com/angular/angular-cli/blob/master/README.md).
+Another point is that it is rather hard to figure out why your transform is not applied to some assets while it is to others. The only clue
+is the output string at it took quite some time to hunt down where it came from.
